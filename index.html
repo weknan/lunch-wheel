@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>午餐随机转盘（多菜品版）</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: "Microsoft Yahei", sans-serif;
+            background-color: #f5f5f5;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding-top: 50px;
+        }
+
+        /* 转盘容器 */
+        .wheel-container {
+            position: relative;
+            width: 350px;
+            height: 350px;
+            margin-bottom: 40px;
+        }
+
+        /* 转盘样式 - 动态适配分区颜色 */
+        .wheel {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            position: relative;
+            border: 5px solid #fff;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+            transition: transform 3s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+
+        /* 转盘中心按钮 */
+        .wheel-center {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            background: #fff;
+            border: 3px solid #ff6b6b;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: #ff6b6b;
+            z-index: 10;
+            box-shadow: 0 0 10px rgba(0,0,0,0.2);
+            user-select: none;
+        }
+
+        .wheel-center:active {
+            transform: translate(-50%, -50%) scale(0.95);
+        }
+
+        /* 菜品文字 */
+        .wheel-item {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            text-align: center;
+            transform-origin: center center;
+            color: #fff;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .wheel-item span {
+            display: inline-block;
+            width: 120px;
+            transform: translateY(30px);
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+        }
+
+        /* 指针 */
+        .pointer {
+            position: absolute;
+            top: -15px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 18px solid transparent;
+            border-right: 18px solid transparent;
+            border-bottom: 35px solid #ff6b6b;
+            z-index: 5;
+        }
+
+        /* 结果提示 */
+        .result {
+            font-size: 22px;
+            color: #333;
+            margin-bottom: 20px;
+            height: 35px;
+            line-height: 35px;
+            font-weight: bold;
+        }
+
+        /* 自定义菜品按钮 */
+        .custom-btn {
+            padding: 12px 24px;
+            background: #4ecdc4;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 10px;
+            transition: background 0.2s;
+        }
+
+        .custom-btn:hover {
+            background: #38b0a9;
+        }
+
+        /* 菜品数量提示 */
+        .tip {
+            font-size: 14px;
+            color: #666;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+<div class="result" id="result">点击转盘开始选择午餐～</div>
+
+<div class="wheel-container">
+    <!-- 指针 -->
+    <div class="pointer"></div>
+
+    <!-- 转盘（动态生成菜品项） -->
+    <div class="wheel" id="wheel"></div>
+
+    <!-- 中心按钮 -->
+    <div class="wheel-center" id="wheelBtn">开始</div>
+</div>
+
+<button class="custom-btn" id="customBtn">自定义菜品</button>
+<p class="tip" id="tip">当前菜品数量：8个 | 支持任意数量自定义</p>
+
+<script>
+    // 初始菜品列表（8个，可自行增减）
+    let foodList = [
+        '麻辣烫', '螺蛳粉', '炸鸡', '牛肉面',
+        '盖浇饭', '汉堡', '火锅', '烧烤'
+    ];
+    // 转盘配色（可根据菜品数量扩展）
+    const colorList = [
+        '#ff6b6b', '#4ecdc4', '#f9c74f', '#90be6d',
+        '#577590', '#f8961e', '#7209b7', '#f72585',
+        '#4361ee', '#f8961e', '#9d4edd', '#06d6a0'
+    ];
+    // 标记是否正在旋转
+    let isRotating = false;
+
+    const wheel = document.getElementById('wheel');
+    const wheelBtn = document.getElementById('wheelBtn');
+    const result = document.getElementById('result');
+    const customBtn = document.getElementById('customBtn');
+    const tip = document.getElementById('tip');
+
+    // 初始化转盘（核心：根据菜品数量自动计算角度和分区）
+    function initWheel() {
+        // 清空原有内容
+        wheel.innerHTML = '';
+        const foodCount = foodList.length;
+        // 每个菜品占的角度
+        const degPerItem = 360 / foodCount;
+
+        // 生成转盘背景（锥形渐变）
+        let gradient = 'conic-gradient(';
+        foodList.forEach((_, index) => {
+            const startDeg = index * degPerItem;
+            const endDeg = (index + 1) * degPerItem;
+            const color = colorList[index % colorList.length];
+            gradient += `${color} ${startDeg}deg ${endDeg}deg,`;
+        });
+        // 移除最后一个逗号，补全渐变
+        gradient = gradient.slice(0, -1) + ')';
+        wheel.style.background = gradient;
+
+        // 生成每个菜品的文字项
+        foodList.forEach((food, index) => {
+            // 文字居中的角度（每个分区的中间角度）
+            const textDeg = index * degPerItem + degPerItem / 2;
+            const item = document.createElement('div');
+            item.className = 'wheel-item';
+            item.style.transform = `rotate(${textDeg}deg)`;
+            item.innerHTML = `<span>${food}</span>`;
+            wheel.appendChild(item);
+        });
+
+        // 更新提示
+        tip.textContent = `当前菜品数量：${foodCount}个 | 支持任意数量自定义`;
+    }
+
+    // 旋转转盘逻辑（适配任意菜品数量）
+    wheelBtn.addEventListener('click', () => {
+        if (isRotating) return;
+        isRotating = true;
+        result.textContent = "正在随机选择中...";
+
+        // 随机生成旋转角度（360*N + 随机角度，保证转够多圈）
+        const randomDeg = 360 * 6 + Math.floor(Math.random() * 360);
+        wheel.style.transform = `rotate(${randomDeg}deg)`;
+
+        // 旋转结束后计算结果
+        setTimeout(() => {
+            const foodCount = foodList.length;
+            const degPerItem = 360 / foodCount;
+            // 计算最终指向的角度（取模360）
+            const finalDeg = randomDeg % 360;
+            // 计算对应菜品索引（指针指向的分区）
+            // 注意：指针在顶部（0度），所以要反向计算
+            const index = Math.floor((360 - finalDeg) / degPerItem) % foodCount;
+            result.textContent = `恭喜！午餐就吃：${foodList[index]} 🎉`;
+            isRotating = false;
+        }, 3000);
+    });
+
+    // 自定义菜品逻辑
+    customBtn.addEventListener('click', () => {
+        const defaultText = foodList.join(',');
+        const newFoods = prompt(
+            '请输入你想吃的菜品，用英文逗号分隔（数量不限）',
+            defaultText
+        );
+        if (!newFoods) return;
+
+        // 处理输入：去空、去重
+        const newFoodArray = newFoods.split(',')
+            .map(item => item.trim())
+            .filter(item => item)
+            .filter((item, index, arr) => arr.indexOf(item) === index);
+
+        if (newFoodArray.length === 0) {
+            alert('请至少输入1个菜品！');
+            return;
+        }
+
+        // 更新菜品列表并重新初始化转盘
+        foodList = newFoodArray;
+        initWheel();
+        result.textContent = '菜品已更新，点击转盘开始选择～';
+        // 重置转盘角度
+        wheel.style.transform = 'rotate(0deg)';
+    });
+
+    // 页面加载时初始化转盘
+    initWheel();
+</script>
+</body>
+</html>
